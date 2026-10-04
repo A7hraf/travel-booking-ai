@@ -36,8 +36,10 @@ model User {
   decidedApplications   CompanyApplication[] @relation("Approver")
   conversations         Conversation[]       @relation("CustomerConversations")
   assignedConversations Conversation[]       @relation("AssignedConversations")
-  bookings              Booking[]
+  bookings              Booking[]            @relation("CustomerBookings")
   messages              ChatMessage[]
+  notifications         Notification[]
+  paymentsRecorded      Booking[]            @relation("PaymentsRecorded")
 
   @@index([companyId])
 }
@@ -130,30 +132,31 @@ enum PackageStatus {
 }
 
 model TravelPackage {
-  id            String        @id @default(cuid())
-  companyId     String
-  company       Company       @relation(fields: [companyId], references: [id])
-  title         String
-  destination   String
-  country       String
-  description   String
-  durationDays  Int
+  id             String         @id @default(cuid())
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id])
+  title          String
+  destination    String
+  country        String
+  description    String
+  durationDays   Int
   /// Price charged to the customer per traveler.
-  pricePerPerson Decimal      @db.Decimal(10, 2)
+  pricePerPerson Decimal        @db.Decimal(10, 2)
   /// Company's own cost per traveler (hotels, transport...). Owner-only; used for profit.
-  costPerPerson  Decimal      @db.Decimal(10, 2)
-  currency      String        @default("USD")
-  inclusions    String[]
-  exclusions    String[]
-  availableFrom DateTime
-  availableTo   DateTime
-  seatsTotal    Int
-  seatsBooked   Int           @default(0)
-  maxGroupSize  Int           @default(10)
-  status        PackageStatus @default(DRAFT)
-  bookings      Booking[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  costPerPerson  Decimal        @db.Decimal(10, 2)
+  currency       String         @default("USD")
+  inclusions     String[]
+  exclusions     String[]
+  availableFrom  DateTime
+  availableTo    DateTime
+  seatsTotal     Int
+  seatsBooked    Int            @default(0)
+  maxGroupSize   Int            @default(10)
+  status         PackageStatus  @default(DRAFT)
+  images         PackageImage[]
+  bookings       Booking[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([companyId])
   @@index([status, destination])
@@ -182,6 +185,8 @@ model Conversation {
   handedOffAt   DateTime?
   /// Raw Claude API message history (append-only, replayed verbatim each turn).
   aiHistory     Json               @default("[]")
+  /// Set while an AI turn runs so two customer messages can't interleave turns.
+  aiBusyUntil   DateTime?
   messages      ChatMessage[]
   bookings      Booking[]
   createdAt     DateTime           @default(now())
@@ -218,17 +223,30 @@ enum BookingStatus {
   COMPLETED
 }
 
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD_IN_PERSON
+  OTHER
+}
+
 model Booking {
-  id             String        @id @default(cuid())
-  reference      String        @unique
+  id             String         @id @default(cuid())
+  reference      String         @unique
   customerId     String
-  customer       User          @relation(fields: [customerId], references: [id])
+  customer       User           @relation("CustomerBookings", fields: [customerId], references: [id])
   packageId      String
-  package        TravelPackage @relation(fields: [packageId], references: [id])
+  package        TravelPackage  @relation(fields: [packageId], references: [id])
   companyId      String
-  company        Company       @relation(fields: [companyId], references: [id])
+  company        Company        @relation(fields: [companyId], references: [id])
   conversationId String?
-  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+  conversation   Conversation?  @relation(fields: [conversationId], references: [id])
   travelers      Int
   travelDate     DateTime
   contactName    String
@@ -236,13 +254,45 @@ model Booking {
   notes          String?
   currency       String
   /// Snapshot of money at booking time so later package edits don't rewrite history.
-  totalPrice     Decimal       @db.Decimal(12, 2)
-  totalCost      Decimal       @db.Decimal(12, 2)
-  platformFee    Decimal       @db.Decimal(12, 2)
-  status         BookingStatus @default(PENDING_CONFIRMATION)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  totalPrice     Decimal        @db.Decimal(12, 2)
+  totalCost      Decimal        @db.Decimal(12, 2)
+  platformFee    Decimal        @db.Decimal(12, 2)
+  status         BookingStatus  @default(PENDING_CONFIRMATION)
+  /// Payments are collected by the company (cash, bank transfer...) and recorded by staff.
+  paymentStatus  PaymentStatus  @default(UNPAID)
+  paymentMethod  PaymentMethod?
+  paymentRef     String?
+  paidAt         DateTime?
+  paidById       String?
+  paidBy         User?          @relation("PaymentsRecorded", fields: [paidById], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([companyId, status])
   @@index([customerId])
+}
+
+model PackageImage {
+  id          String        @id @default(cuid())
+  packageId   String
+  package     TravelPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  storagePath String
+  mimeType    String
+  position    Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  @@index([packageId, position])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
 }

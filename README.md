@@ -57,7 +57,23 @@ src/app/(pages)               customer: /chat /bookings /apply-company
                               support:  /support/*   admin: /admin/*
 ```
 
-## Getting started
+## Features
+
+- **AI booking chat** (Claude) that searches real packages, creates bookings and hands off to company staff or support. Customers can also skip the AI with "Talk to a person".
+- **Company onboarding** with document upload, support validation, and admin approval
+- **Packages** with photos, availability, seats and group size; owner-only cost and margin
+- **Bookings** with seat reservation, confirm/cancel/complete, and **manual payments** (cash, bank transfer, card in person) with receipt reference; paid bookings that get cancelled are marked as refunded
+- **Profit dashboard** for owners: revenue, costs, platform commission, net profit, and money still to collect
+- **Notifications** (bell in the header) for new chats, messages, booking and payment changes, and application decisions
+- **Accounts**: profile and password change; admins and company owners can reset passwords
+- **Installable on phones** (add to home screen; full screen with app icon)
+- **Hardening**: login/sign-up/chat rate limits, one AI reply at a time per chat, security headers, private documents
+
+## Deploying
+
+See **[DEPLOY.md](DEPLOY.md)** for the step-by-step Railway setup and installing the app on your phone.
+
+## Getting started (local development)
 
 ```bash
 cp .env.example .env        # set DATABASE_URL, AUTH_SECRET, ANTHROPIC_API_KEY
@@ -69,11 +85,16 @@ npm run dev
 
 Demo accounts (password `password123`): `admin@example.com`, `support@example.com`, `owner@example.com`, `employee@example.com`, `customer@example.com`.
 
-## Not built yet / next steps
+## Tests
 
-- Online payment (currently staff arrange payment in the chat after confirming)
-- Package images, multiple departure dates per package
-- Real-time chat (currently polls every 3s) and email/push notifications for handoffs
-- Password reset, email verification, rate limiting on login and chat
-- Fallback to human support when the AI API itself is down (customers currently get an apology message)
-- Automated test suite
+```bash
+npm run test:e2e   # end-to-end browser tests; uses a stand-in for the Claude API, no key needed
+```
+
+## Not built yet
+
+- Online card payment (payments are recorded manually by staff)
+- Email/SMS/push notifications (notifications are in-app)
+- Self-service "forgot password" by email (needs an email provider; admins/owners reset passwords)
+- Real-time chat (it refreshes every 3 seconds)
+- Multiple departure dates per package

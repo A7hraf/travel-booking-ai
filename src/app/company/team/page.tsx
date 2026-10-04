@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { requireCompanyUser } from "@/lib/auth";
-import { addEmployee, removeEmployee } from "@/app/actions/team";
+import { addEmployee, removeEmployee, resetEmployeePassword } from "@/app/actions/team";
 import { ActionForm } from "@/components/action-form";
 import { Field, SubmitButton } from "@/components/form";
 
@@ -28,10 +28,20 @@ export default async function TeamPage() {
                 <td className="lowercase">{u.role.replace("COMPANY_", "")}</td>
                 <td>
                   {u.role === "COMPANY_EMPLOYEE" && (
-                    <form action={removeEmployee}>
-                      <input type="hidden" name="userId" value={u.id} />
-                      <button className="btn">Remove</button>
-                    </form>
+                    <div className="flex flex-wrap items-start gap-2">
+                      <details>
+                        <summary className="btn cursor-pointer list-none [&::-webkit-details-marker]:hidden">Reset password</summary>
+                        <ActionForm action={resetEmployeePassword} className="mt-2 w-56 space-y-2">
+                          <input type="hidden" name="userId" value={u.id} />
+                          <input name="password" type="text" minLength={8} required placeholder="Temporary password" className="input" />
+                          <SubmitButton>Set password</SubmitButton>
+                        </ActionForm>
+                      </details>
+                      <form action={removeEmployee}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <button className="btn">Remove</button>
+                      </form>
+                    </div>
                   )}
                 </td>
               </tr>

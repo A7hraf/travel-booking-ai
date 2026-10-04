@@ -43,6 +43,11 @@ export function PackageForm({ pkg }: { pkg?: TravelPackage }) {
         <Field label="Included (one per line)" name="inclusions" textarea required={false} defaultValue={pkg?.inclusions.join("\n")} />
         <Field label="Not included (one per line)" name="exclusions" textarea required={false} defaultValue={pkg?.exclusions.join("\n")} />
       </div>
+      <label className="block">
+        <span className="label">{pkg ? "Add photos" : "Photos"}</span>
+        <input type="file" name="images" multiple accept="image/jpeg,image/png,image/webp" className="block text-sm" />
+        <span className="mt-1 block text-xs text-gray-500">Up to 6 photos, JPEG/PNG/WebP, 5MB each. The first photo is the cover.</span>
+      </label>
       <SubmitButton>{pkg ? "Save changes" : "Create package"}</SubmitButton>
     </ActionForm>
   );

@@ -16,7 +16,7 @@ export default async function PackagesPage(props: PageProps<"/packages">) {
         ],
       }),
     },
-    include: { company: { select: { name: true } } },
+    include: { company: { select: { name: true } }, images: { select: { id: true }, orderBy: { position: "asc" }, take: 1 } },
     orderBy: { pricePerPerson: "asc" },
   });
 

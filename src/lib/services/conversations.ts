@@ -1,6 +1,7 @@
 import "server-only";
 import type { Conversation, User } from "@prisma/client";
 import { db } from "../db";
+import { notifyCompanyStaff, notifyRoles } from "./notifications";
 
 export async function addSystemMessage(conversationId: string, content: string) {
   return db.chatMessage.create({ data: { conversationId, senderType: "SYSTEM", content } });
@@ -13,6 +14,7 @@ export async function handOffToCompany(conversationId: string, companyId: string
   });
   const company = await db.company.findUnique({ where: { id: companyId }, select: { name: true } });
   await addSystemMessage(conversationId, `Conversation transferred to ${company?.name ?? "the travel company"}. A team member will reply here.`);
+  await notifyCompanyStaff(companyId, { title: "New customer conversation", body: reason, link: `/inbox/${conversationId}` });
 }
 
 export async function handOffToSupport(conversationId: string, reason: string) {
@@ -21,6 +23,7 @@ export async function handOffToSupport(conversationId: string, reason: string) {
     data: { status: "HANDED_TO_SUPPORT", handoffReason: reason, handedOffAt: new Date(), assignedToId: null },
   });
   await addSystemMessage(conversationId, "Conversation transferred to the support team. Someone will reply here shortly.");
+  await notifyRoles(["SUPPORT"], { title: "Conversation needs support", body: reason, link: `/inbox/${conversationId}` });
 }
 
 /** Who may read/write a conversation: its customer, staff of the company it was handed to, or support/admin. */

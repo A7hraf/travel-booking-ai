@@ -15,6 +15,9 @@ export default function LoginPage() {
         </ActionForm>
       </div>
       <p className="mt-4 text-center text-sm text-gray-600">
+        Forgot your password? Company employees: ask your company owner. Everyone else: contact support{process.env.SUPPORT_EMAIL ? ` at ${process.env.SUPPORT_EMAIL}` : ""} to reset it.
+      </p>
+      <p className="mt-2 text-center text-sm text-gray-600">
         New here? <Link href="/register" className="text-brand-700 underline">Create an account</Link>
       </p>
     </div>

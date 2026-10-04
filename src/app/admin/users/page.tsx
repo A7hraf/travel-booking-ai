@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { createAccount, setUserActive } from "@/app/actions/admin";
+import { createAccount, resetUserPassword, setUserActive } from "@/app/actions/admin";
 import { ActionForm } from "@/components/action-form";
 import { Field, SubmitButton } from "@/components/form";
 import { dateTime } from "@/lib/format";
@@ -83,7 +83,15 @@ export default async function AdminUsersPage(props: PageProps<"/admin/users">) {
                 <td className="lowercase">{u.role.replace("_", " ")}</td>
                 <td>{u.company?.name ?? "—"}</td>
                 <td className="whitespace-nowrap">{dateTime(u.createdAt)}</td>
-                <td>
+                <td className="space-y-2">
+                  <details>
+                    <summary className="btn cursor-pointer list-none [&::-webkit-details-marker]:hidden">Reset password</summary>
+                    <ActionForm action={resetUserPassword} className="mt-2 w-56 space-y-2">
+                      <input type="hidden" name="userId" value={u.id} />
+                      <input name="password" type="text" minLength={8} required placeholder="Temporary password" className="input" />
+                      <SubmitButton>Set password</SubmitButton>
+                    </ActionForm>
+                  </details>
                   {u.id !== admin.id && (
                     <form action={setUserActive}>
                       <input type="hidden" name="userId" value={u.id} />

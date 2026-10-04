@@ -9,7 +9,7 @@ export default async function Home() {
     getCurrentUser(),
     db.travelPackage.findMany({
       where: { status: "ACTIVE", company: { active: true } },
-      include: { company: { select: { name: true } } },
+      include: { company: { select: { name: true } }, images: { select: { id: true }, orderBy: { position: "asc" }, take: 1 } },
       orderBy: { createdAt: "desc" },
       take: 6,
     }),

@@ -60,7 +60,10 @@ export default async function InboxConversationPage(props: PageProps<"/inbox/[id
                     {b.package.title} · {b.travelers} pax · {date(b.travelDate)} · {money(b.totalPrice, b.currency)}
                   </p>
                 </div>
-                <Badge value={b.status} />
+                <div className="flex flex-col items-end gap-1">
+                  <Badge value={b.status} />
+                  <Badge value={b.paymentStatus} />
+                </div>
               </div>
             ))}
             {!isSupport && <Link href="/company/bookings" className="text-brand-700 underline">Manage bookings</Link>}

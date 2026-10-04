@@ -6,7 +6,7 @@ import { companyProfitSummary } from "@/lib/services/bookings";
 /** Owner-only: revenue, costs, platform commission and net profit from confirmed and completed bookings. */
 export default async function ProfitPage() {
   const user = await requireCompanyUser(true);
-  const [{ rows, byPackage }, packages] = await Promise.all([
+  const [{ rows, byPackage, outstanding }, packages] = await Promise.all([
     companyProfitSummary(user.companyId),
     db.travelPackage.findMany({ where: { companyId: user.companyId }, select: { id: true, title: true } }),
   ]);
@@ -46,6 +46,12 @@ export default async function ProfitPage() {
           ))}
         </div>
       ))}
+      {outstanding.length > 0 && (
+        <p className="rounded-lg bg-orange-50 p-3 text-sm text-orange-800">
+          Still to collect from customers:{" "}
+          {outstanding.map((o) => `${money(Number(o._sum.totalPrice ?? 0), o.currency)} (${o._count} booking${o._count > 1 ? "s" : ""})`).join(", ")}
+        </p>
+      )}
       {pending.length > 0 && (
         <p className="text-sm text-gray-600">
           Pending confirmation:{" "}

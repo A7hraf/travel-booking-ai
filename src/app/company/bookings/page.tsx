@@ -4,6 +4,7 @@ import { requireCompanyUser } from "@/lib/auth";
 import { date, money } from "@/lib/format";
 import { changeBookingStatus } from "@/app/actions/bookings";
 import { Badge } from "@/components/badge";
+import { PaymentForm } from "@/components/payment-form";
 
 const NEXT: Record<string, { status: string; label: string; cls: string }[]> = {
   PENDING_CONFIRMATION: [
@@ -16,16 +17,58 @@ const NEXT: Record<string, { status: string; label: string; cls: string }[]> = {
   ],
 };
 
-export default async function CompanyBookingsPage() {
-  const user = await requireCompanyUser();
-  const bookings = await db.booking.findMany({
-    where: { companyId: user.companyId },
+type Row = Awaited<ReturnType<typeof load>>[number];
+
+async function load(companyId: string, filter?: string) {
+  return db.booking.findMany({
+    where: {
+      companyId,
+      ...(filter === "unpaid" && { paymentStatus: "UNPAID", status: { in: ["PENDING_CONFIRMATION", "CONFIRMED"] } }),
+      ...(filter === "pending" && { status: "PENDING_CONFIRMATION" }),
+    },
     include: { package: { select: { title: true } }, customer: { select: { name: true, email: true } } },
     orderBy: { createdAt: "desc" },
   });
+}
+
+function Actions({ b }: { b: Row }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {(NEXT[b.status] ?? []).map((n) => (
+        <form key={n.status} action={changeBookingStatus}>
+          <input type="hidden" name="bookingId" value={b.id} />
+          <input type="hidden" name="status" value={n.status} />
+          <button className={n.cls}>{n.label}</button>
+        </form>
+      ))}
+      {b.paymentStatus === "UNPAID" && b.status !== "CANCELLED" && <PaymentForm bookingId={b.id} />}
+    </div>
+  );
+}
+
+const FILTERS = [
+  { key: "", label: "All" },
+  { key: "pending", label: "To confirm" },
+  { key: "unpaid", label: "Unpaid" },
+];
+
+export default async function CompanyBookingsPage(props: PageProps<"/company/bookings">) {
+  const user = await requireCompanyUser();
+  const { filter } = await props.searchParams;
+  const active = typeof filter === "string" ? filter : "";
+  const bookings = await load(user.companyId, active);
+
   return (
     <div className="space-y-6">
       <h1 className="h1">Bookings</h1>
+      <nav className="flex gap-2 text-sm">
+        {FILTERS.map((f) => (
+          <Link key={f.key} href={f.key ? `/company/bookings?filter=${f.key}` : "/company/bookings"} className={active === f.key ? "btn-primary" : "btn"}>
+            {f.label}
+          </Link>
+        ))}
+      </nav>
+
       {/* Phone: one card per booking */}
       <div className="space-y-3 md:hidden">
         {bookings.map((b) => (
@@ -35,7 +78,10 @@ export default async function CompanyBookingsPage() {
                 <p className="font-medium">{b.package.title}</p>
                 <p className="font-mono text-xs text-gray-500">{b.reference}</p>
               </div>
-              <Badge value={b.status} />
+              <div className="flex flex-col items-end gap-1">
+                <Badge value={b.status} />
+                <Badge value={b.paymentStatus} />
+              </div>
             </div>
             <p>
               {b.contactName} · {b.contactPhone}
@@ -44,23 +90,15 @@ export default async function CompanyBookingsPage() {
               {date(b.travelDate)} · {b.travelers} traveler{b.travelers > 1 ? "s" : ""} · {money(b.totalPrice, b.currency)}
             </p>
             {b.notes && <p className="text-xs text-gray-500">Note: {b.notes}</p>}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {(NEXT[b.status] ?? []).map((n) => (
-                <form key={n.status} action={changeBookingStatus}>
-                  <input type="hidden" name="bookingId" value={b.id} />
-                  <input type="hidden" name="status" value={n.status} />
-                  <button className={n.cls}>{n.label}</button>
-                </form>
-              ))}
-              {b.conversationId && (
-                <Link href={`/inbox/${b.conversationId}`} className="btn">
-                  Open chat
-                </Link>
-              )}
-            </div>
+            <Actions b={b} />
+            {b.conversationId && (
+              <Link href={`/inbox/${b.conversationId}`} className="inline-block text-brand-700 underline">
+                Open chat
+              </Link>
+            )}
           </div>
         ))}
-        {bookings.length === 0 && <div className="card text-sm text-gray-500">No bookings yet.</div>}
+        {bookings.length === 0 && <div className="card text-sm text-gray-500">No bookings here.</div>}
       </div>
 
       <div className="card hidden overflow-x-auto p-0 md:block">
@@ -74,6 +112,7 @@ export default async function CompanyBookingsPage() {
               <th>Pax</th>
               <th>Total</th>
               <th>Status</th>
+              <th>Payment</th>
               <th></th>
             </tr>
           </thead>
@@ -96,19 +135,15 @@ export default async function CompanyBookingsPage() {
                 <td>{b.travelers}</td>
                 <td>{money(b.totalPrice, b.currency)}</td>
                 <td><Badge value={b.status} /></td>
-                <td className="space-x-1 whitespace-nowrap">
-                  {(NEXT[b.status] ?? []).map((n) => (
-                    <form key={n.status} action={changeBookingStatus} className="inline">
-                      <input type="hidden" name="bookingId" value={b.id} />
-                      <input type="hidden" name="status" value={n.status} />
-                      <button className={n.cls}>{n.label}</button>
-                    </form>
-                  ))}
+                <td>
+                  <Badge value={b.paymentStatus} />
+                  {b.paymentMethod && <div className="text-xs text-gray-500 lowercase">{b.paymentMethod.replaceAll("_", " ")}{b.paymentRef && ` · ${b.paymentRef}`}</div>}
                 </td>
+                <td className="min-w-56"><Actions b={b} /></td>
               </tr>
             ))}
             {bookings.length === 0 && (
-              <tr><td colSpan={8} className="text-gray-500">No bookings yet.</td></tr>
+              <tr><td colSpan={9} className="text-gray-500">No bookings here.</td></tr>
             )}
           </tbody>
         </table>

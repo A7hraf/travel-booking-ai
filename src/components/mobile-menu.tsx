@@ -12,7 +12,7 @@ export function MobileMenu({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   return (
-    <details ref={ref} className="group relative ml-auto md:hidden">
+    <details ref={ref} className="group relative md:hidden">
       <summary className="btn list-none [&::-webkit-details-marker]:hidden" aria-label="Menu">
         <span className="group-open:hidden">☰ Menu</span>
         <span className="hidden group-open:inline">✕ Close</span>

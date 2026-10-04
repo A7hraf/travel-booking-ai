@@ -56,3 +56,14 @@ export async function updateCompanyAdmin(formData: FormData) {
   });
   revalidatePath("/admin/companies");
 }
+
+const resetSchema = z.object({ userId: z.string(), password: z.string().min(8, "Password must be at least 8 characters") });
+
+/** There's no email service, so a forgotten password is reset by an admin who shares the temporary one. */
+export async function resetUserPassword(_: FormState, formData: FormData): Promise<FormState> {
+  await requireUser(["ADMIN"]);
+  const parsed = resetSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const user = await db.user.update({ where: { id: parsed.data.userId }, data: { passwordHash: await hashPassword(parsed.data.password) } });
+  return { success: `Password reset for ${user.email}. Share the temporary password with them securely.` };
+}

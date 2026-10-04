@@ -93,7 +93,27 @@ export async function setBookingStatus(bookingId: string, companyId: string, sta
         data: { seatsBooked: { decrement: booking.travelers } },
       });
     }
-    return tx.booking.update({ where: { id: booking.id }, data: { status } });
+    return tx.booking.update({
+      where: { id: booking.id },
+      // A cancelled paid booking is owed back to the customer; staff settle the refund outside the app.
+      data: { status, ...(status === "CANCELLED" && booking.paymentStatus === "PAID" && { paymentStatus: "REFUNDED" }) },
+    });
+  });
+}
+
+export async function recordPayment(
+  bookingId: string,
+  companyId: string,
+  staffId: string,
+  input: { method: "CASH" | "BANK_TRANSFER" | "CARD_IN_PERSON" | "OTHER"; reference?: string | null },
+) {
+  const booking = await db.booking.findFirst({ where: { id: bookingId, companyId } });
+  if (!booking) throw new BookingError("Booking not found.");
+  if (booking.status === "CANCELLED") throw new BookingError("Cancelled bookings can't be marked as paid.");
+  if (booking.paymentStatus === "PAID") throw new BookingError("This booking is already paid.");
+  return db.booking.update({
+    where: { id: booking.id },
+    data: { paymentStatus: "PAID", paymentMethod: input.method, paymentRef: input.reference || null, paidAt: new Date(), paidById: staffId },
   });
 }
 
@@ -111,5 +131,11 @@ export async function companyProfitSummary(companyId: string) {
     _sum: { totalPrice: true, totalCost: true, platformFee: true, travelers: true },
     _count: true,
   });
-  return { rows, byPackage };
+  const outstanding = await db.booking.groupBy({
+    by: ["currency"],
+    where: { companyId, status: { in: ["CONFIRMED", "COMPLETED"] }, paymentStatus: "UNPAID" },
+    _sum: { totalPrice: true },
+    _count: true,
+  });
+  return { rows, byPackage, outstanding };
 }

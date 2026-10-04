@@ -56,3 +56,18 @@ export async function routeToCompany(formData: FormData) {
   await handOffToCompany(convo.id, companyId, `Routed by support (${user.name}): ${String(formData.get("reason") || "")}`);
   revalidatePath(`/inbox/${convo.id}`);
 }
+
+/** Customer skips the AI and asks for a person (also the way out if the AI is unavailable). */
+export async function requestHuman(formData: FormData) {
+  const user = await requireUser(["CUSTOMER"]);
+  const convo = await db.conversation.findFirst({
+    where: { id: String(formData.get("conversationId")), customerId: user.id, status: "AI_ACTIVE" },
+  });
+  if (!convo) return;
+  if (convo.companyId) {
+    await handOffToCompany(convo.id, convo.companyId, "Customer asked to talk to a person.");
+  } else {
+    await handOffToSupport(convo.id, "Customer asked to talk to a person.");
+  }
+  revalidatePath(`/chat/${convo.id}`);
+}

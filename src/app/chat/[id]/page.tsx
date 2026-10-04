@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { Badge } from "@/components/badge";
 import { ChatWindow } from "@/components/chat-window";
+import { requestHuman } from "@/app/actions/conversations";
 
 const STATUS_HELP: Record<string, string> = {
   AI_ACTIVE: "You're chatting with the AI travel assistant.",
@@ -30,6 +31,12 @@ export default async function ChatPage(props: PageProps<"/chat/[id]">) {
         </div>
         <Badge value={convo.status} />
       </div>
+      {convo.status === "AI_ACTIVE" && (
+        <form action={requestHuman} className="flex justify-end">
+          <input type="hidden" name="conversationId" value={convo.id} />
+          <button className="text-sm text-brand-700 underline">Talk to a person instead</button>
+        </form>
+      )}
       <ChatWindow
         conversationId={convo.id}
         viewer="customer"

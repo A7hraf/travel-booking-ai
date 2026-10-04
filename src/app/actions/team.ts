@@ -66,3 +66,15 @@ export async function updateCompanyProfile(_: FormState, formData: FormData): Pr
   revalidatePath("/company");
   return { success: "Company profile saved." };
 }
+
+/** Owners can reset an employee's password (e.g. forgotten password). */
+export async function resetEmployeePassword(_: FormState, formData: FormData): Promise<FormState> {
+  const owner = await requireCompanyUser(true);
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 8) return { error: "Password must be at least 8 characters" };
+  const updated = await db.user.updateMany({
+    where: { id: String(formData.get("userId")), companyId: owner.companyId, role: "COMPANY_EMPLOYEE" },
+    data: { passwordHash: await hashPassword(password) },
+  });
+  return updated.count ? { success: "Password reset. Share it with your employee." } : { error: "Employee not found" };
+}

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { slugify } from "@/lib/format";
 import { ALLOWED_MIME, MAX_UPLOAD_BYTES, saveUpload } from "@/lib/storage";
+import { notifyRoles, notifyUsers } from "@/lib/services/notifications";
 import type { FormState } from "./types";
 
 const DOCUMENT_KINDS = ["business_license", "tax_certificate", "owner_id"] as const;
@@ -71,6 +72,11 @@ export async function submitApplication(_: FormState, formData: FormData): Promi
     });
   }
 
+  await notifyRoles(["SUPPORT"], {
+    title: existing ? "Company application resubmitted" : "New company application",
+    body: `${application.companyName} (${application.city}, ${application.country})`,
+    link: `/support/applications/${application.id}`,
+  });
   revalidatePath("/apply-company");
   redirect("/apply-company");
 }
@@ -99,6 +105,20 @@ export async function supportReview(_: FormState, formData: FormData): Promise<F
     },
   });
   if (updated.count === 0) return { error: "This application is no longer awaiting validation." };
+  const app = await db.companyApplication.findUniqueOrThrow({ where: { id: applicationId } });
+  if (decision === "validate") {
+    await notifyRoles(["ADMIN"], { title: "Company ready for approval", body: app.companyName, link: `/admin/applications/${app.id}` });
+  }
+  await notifyUsers([app.applicantId], {
+    title:
+      decision === "validate"
+        ? "Documents validated"
+        : decision === "needs_changes"
+          ? "Your application needs changes"
+          : "Application rejected",
+    body: decision === "validate" ? "Your application is now waiting for final approval." : notes || "",
+    link: "/apply-company",
+  });
   revalidatePath("/support/applications");
   redirect("/support/applications");
 }
@@ -156,6 +176,14 @@ export async function adminDecide(_: FormState, formData: FormData): Promise<For
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed" };
+  }
+  const decided = await db.companyApplication.findUnique({ where: { id: applicationId } });
+  if (decided) {
+    await notifyUsers([decided.applicantId], {
+      title: decision === "approve" ? "Your company is approved!" : "Application rejected",
+      body: decision === "approve" ? `${decided.companyName} is live. Add your first package.` : notes || "",
+      link: decision === "approve" ? "/company" : "/apply-company",
+    });
   }
   revalidatePath("/admin/applications");
   redirect("/admin/applications");

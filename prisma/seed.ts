@@ -20,6 +20,9 @@ const inMonths = (m: number) => {
 };
 
 async function main() {
+  if (process.env.NODE_ENV === "production" && process.env.SEED_DEMO !== "true") {
+    throw new Error("Refusing to create demo accounts with a known password in production. Set SEED_DEMO=true to override.");
+  }
   await user("admin@example.com", "Platform Admin", "ADMIN");
   await user("support@example.com", "Sam Support", "SUPPORT");
   await user("customer@example.com", "Carla Customer", "CUSTOMER");

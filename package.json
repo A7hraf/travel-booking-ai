@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "start:prod": "prisma migrate deploy && node scripts/bootstrap-admin.mjs && next start"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
@@ -37,5 +38,8 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=20.9"
   }
 }

@@ -15,6 +15,9 @@ const COLORS: Record<string, string> = {
   CONFIRMED: "bg-green-50 text-green-700",
   CANCELLED: "bg-red-50 text-red-700",
   COMPLETED: "bg-gray-100 text-gray-700",
+  UNPAID: "bg-orange-50 text-orange-700",
+  PAID: "bg-green-50 text-green-700",
+  REFUNDED: "bg-purple-50 text-purple-700",
 };
 
 export function Badge({ value }: { value: string }) {

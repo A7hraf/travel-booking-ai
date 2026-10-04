@@ -8,7 +8,7 @@ import { startConversation } from "@/app/actions/conversations";
 export default async function PackagePage(props: PageProps<"/packages/[id]">) {
   const { id } = await props.params;
   const [pkg, user] = await Promise.all([
-    db.travelPackage.findFirst({ where: { id, status: "ACTIVE", company: { active: true } }, include: { company: true } }),
+    db.travelPackage.findFirst({ where: { id, status: "ACTIVE", company: { active: true } }, include: { company: true, images: { orderBy: { position: "asc" } } } }),
     getCurrentUser(),
   ]);
   if (!pkg) notFound();
@@ -16,6 +16,19 @@ export default async function PackagePage(props: PageProps<"/packages/[id]">) {
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
+        {pkg.images.length > 0 && (
+          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            {pkg.images.map((img, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={img.id}
+                src={`/api/images/${img.id}`}
+                alt={`${pkg.title} photo ${i + 1}`}
+                className="aspect-[4/3] w-[85%] shrink-0 snap-start rounded-xl object-cover sm:w-[70%]"
+              />
+            ))}
+          </div>
+        )}
         <p className="text-sm uppercase tracking-wide text-gray-500">
           {pkg.destination}, {pkg.country}
         </p>
