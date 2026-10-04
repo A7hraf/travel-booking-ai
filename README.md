@@ -88,8 +88,11 @@ Demo accounts (password `password123`): `admin@example.com`, `support@example.co
 ## Tests
 
 ```bash
-npm run test:e2e   # end-to-end browser tests; uses a stand-in for the Claude API, no key needed
+npx playwright install chromium   # once
+TEST_DATABASE_URL="postgresql://.../travel_test" npm run test:e2e
 ```
+
+The end-to-end tests drive the whole app in a phone-sized browser: company onboarding, packages with photos, AI booking with handoff, payments, notifications, access control. They use a stand-in for the Claude API (`tests/mock-claude.mjs`), so no API key is needed. **The test database is wiped on every run**, so never point it at real data. GitHub Actions runs typecheck, lint, build and these tests on every push.
 
 ## Not built yet
 
