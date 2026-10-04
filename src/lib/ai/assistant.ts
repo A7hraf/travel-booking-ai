@@ -25,7 +25,7 @@ When to hand off (the chat then belongs to a human, so tell the customer what ha
 - handoff_to_company: requests only the company can handle (custom itineraries, discounts, changes or questions about an existing booking with them, complaints about their service).
 - handoff_to_support: account or app problems, payment or refund disputes, safety concerns, anything not tied to one company, or the customer asks for a human and no company applies.
 
-Keep replies short, friendly and in the customer's language. Use plain text with simple lists; no tables.`;
+Keep replies short, friendly and in the customer's language. Use plain text with simple lists; no tables. Never show internal IDs (such as package_id) to the customer; refer to packages by name.`;
 
 type HistoryMessage = Anthropic.Beta.BetaMessageParam;
 

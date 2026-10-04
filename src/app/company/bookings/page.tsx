@@ -26,7 +26,44 @@ export default async function CompanyBookingsPage() {
   return (
     <div className="space-y-6">
       <h1 className="h1">Bookings</h1>
-      <div className="card overflow-x-auto p-0">
+      {/* Phone: one card per booking */}
+      <div className="space-y-3 md:hidden">
+        {bookings.map((b) => (
+          <div key={b.id} className="card space-y-2 p-4 text-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-medium">{b.package.title}</p>
+                <p className="font-mono text-xs text-gray-500">{b.reference}</p>
+              </div>
+              <Badge value={b.status} />
+            </div>
+            <p>
+              {b.contactName} · {b.contactPhone}
+            </p>
+            <p className="text-gray-600">
+              {date(b.travelDate)} · {b.travelers} traveler{b.travelers > 1 ? "s" : ""} · {money(b.totalPrice, b.currency)}
+            </p>
+            {b.notes && <p className="text-xs text-gray-500">Note: {b.notes}</p>}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {(NEXT[b.status] ?? []).map((n) => (
+                <form key={n.status} action={changeBookingStatus}>
+                  <input type="hidden" name="bookingId" value={b.id} />
+                  <input type="hidden" name="status" value={n.status} />
+                  <button className={n.cls}>{n.label}</button>
+                </form>
+              ))}
+              {b.conversationId && (
+                <Link href={`/inbox/${b.conversationId}`} className="btn">
+                  Open chat
+                </Link>
+              )}
+            </div>
+          </div>
+        ))}
+        {bookings.length === 0 && <div className="card text-sm text-gray-500">No bookings yet.</div>}
+      </div>
+
+      <div className="card hidden overflow-x-auto p-0 md:block">
         <table className="table">
           <thead>
             <tr>
