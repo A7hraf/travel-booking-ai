@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Every self-registered account starts as CUSTOMER. Company roles are granted
+/// when an application is approved (owner) or when an owner adds staff
+/// (employee). SUPPORT and ADMIN accounts are only created by an admin.
+enum Role {
+  CUSTOMER
+  COMPANY_OWNER
+  COMPANY_EMPLOYEE
+  SUPPORT
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  phone        String?
+  passwordHash String
+  role         Role     @default(CUSTOMER)
+  active       Boolean  @default(true)
+  companyId    String?
+  company      Company? @relation("CompanyStaff", fields: [companyId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  applications          CompanyApplication[] @relation("Applicant")
+  validatedApplications CompanyApplication[] @relation("Validator")
+  decidedApplications   CompanyApplication[] @relation("Approver")
+  conversations         Conversation[]       @relation("CustomerConversations")
+  assignedConversations Conversation[]       @relation("AssignedConversations")
+  bookings              Booking[]
+  messages              ChatMessage[]
+
+  @@index([companyId])
+}
+
+/// Workflow: SUBMITTED -> (support) VALIDATED | REJECTED -> (admin) APPROVED | REJECTED.
+/// Support may also send it back as NEEDS_CHANGES; the applicant edits and resubmits.
+enum ApplicationStatus {
+  SUBMITTED
+  NEEDS_CHANGES
+  VALIDATED
+  APPROVED
+  REJECTED
+}
+
+model CompanyApplication {
+  id                 String            @id @default(cuid())
+  applicantId        String
+  applicant          User              @relation("Applicant", fields: [applicantId], references: [id])
+  companyName        String
+  legalName          String
+  registrationNumber String
+  taxId              String
+  country            String
+  city               String
+  address            String
+  contactEmail       String
+  contactPhone       String
+  website            String?
+  description        String
+  status             ApplicationStatus @default(SUBMITTED)
+
+  validatorId     String?
+  validator       User?     @relation("Validator", fields: [validatorId], references: [id])
+  validatedAt     DateTime?
+  validationNotes String?
+
+  approverId    String?
+  approver      User?     @relation("Approver", fields: [approverId], references: [id])
+  decidedAt     DateTime?
+  decisionNotes String?
+
+  documents ApplicationDocument[]
+  company   Company?
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@index([status])
+  @@index([applicantId])
+}
+
+model ApplicationDocument {
+  id            String             @id @default(cuid())
+  applicationId String
+  application   CompanyApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  kind          String // e.g. "business_license", "tax_certificate", "owner_id"
+  fileName      String
+  mimeType      String
+  sizeBytes     Int
+  storagePath   String
+  uploadedAt    DateTime           @default(now())
+}
+
+model Company {
+  id             String              @id @default(cuid())
+  name           String
+  slug           String              @unique
+  description    String
+  contactEmail   String
+  contactPhone   String
+  city           String
+  country        String
+  website        String?
+  /// Platform commission taken from each confirmed booking, as a fraction (0.10 = 10%).
+  commissionRate Decimal             @default(0.10) @db.Decimal(5, 4)
+  active         Boolean             @default(true)
+  applicationId  String?             @unique
+  application    CompanyApplication? @relation(fields: [applicationId], references: [id])
+  staff          User[]              @relation("CompanyStaff")
+  packages       TravelPackage[]
+  conversations  Conversation[]
+  bookings       Booking[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+enum PackageStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model TravelPackage {
+  id            String        @id @default(cuid())
+  companyId     String
+  company       Company       @relation(fields: [companyId], references: [id])
+  title         String
+  destination   String
+  country       String
+  description   String
+  durationDays  Int
+  /// Price charged to the customer per traveler.
+  pricePerPerson Decimal      @db.Decimal(10, 2)
+  /// Company's own cost per traveler (hotels, transport...). Owner-only; used for profit.
+  costPerPerson  Decimal      @db.Decimal(10, 2)
+  currency      String        @default("USD")
+  inclusions    String[]
+  exclusions    String[]
+  availableFrom DateTime
+  availableTo   DateTime
+  seatsTotal    Int
+  seatsBooked   Int           @default(0)
+  maxGroupSize  Int           @default(10)
+  status        PackageStatus @default(DRAFT)
+  bookings      Booking[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([companyId])
+  @@index([status, destination])
+}
+
+/// AI_ACTIVE: the assistant is answering. HANDED_TO_COMPANY / HANDED_TO_SUPPORT:
+/// a human owns it from here (the AI stops replying). CLOSED: done.
+enum ConversationStatus {
+  AI_ACTIVE
+  HANDED_TO_COMPANY
+  HANDED_TO_SUPPORT
+  CLOSED
+}
+
+model Conversation {
+  id            String             @id @default(cuid())
+  customerId    String
+  customer      User               @relation("CustomerConversations", fields: [customerId], references: [id])
+  title         String             @default("New trip")
+  status        ConversationStatus @default(AI_ACTIVE)
+  companyId     String?
+  company       Company?           @relation(fields: [companyId], references: [id])
+  assignedToId  String?
+  assignedTo    User?              @relation("AssignedConversations", fields: [assignedToId], references: [id])
+  handoffReason String?
+  handedOffAt   DateTime?
+  /// Raw Claude API message history (append-only, replayed verbatim each turn).
+  aiHistory     Json               @default("[]")
+  messages      ChatMessage[]
+  bookings      Booking[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([customerId])
+  @@index([status, companyId])
+}
+
+enum SenderType {
+  CUSTOMER
+  AI
+  STAFF
+  SYSTEM
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderType     SenderType
+  senderId       String?
+  sender         User?        @relation(fields: [senderId], references: [id])
+  content        String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+enum BookingStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  reference      String        @unique
+  customerId     String
+  customer       User          @relation(fields: [customerId], references: [id])
+  packageId      String
+  package        TravelPackage @relation(fields: [packageId], references: [id])
+  companyId      String
+  company        Company       @relation(fields: [companyId], references: [id])
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+  travelers      Int
+  travelDate     DateTime
+  contactName    String
+  contactPhone   String
+  notes          String?
+  currency       String
+  /// Snapshot of money at booking time so later package edits don't rewrite history.
+  totalPrice     Decimal       @db.Decimal(12, 2)
+  totalCost      Decimal       @db.Decimal(12, 2)
+  platformFee    Decimal       @db.Decimal(12, 2)
+  status         BookingStatus @default(PENDING_CONFIRMATION)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([companyId, status])
+  @@index([customerId])
+}
