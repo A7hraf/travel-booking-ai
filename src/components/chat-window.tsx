@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type Message = {
@@ -33,6 +34,12 @@ export function ChatWindow({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  // Re-render the server parts of the page (status badge, booking panel) after a handoff or close.
+  useEffect(() => {
+    if (status !== initialStatus) router.refresh();
+  }, [status, initialStatus, router]);
 
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/conversations/${conversationId}/messages`, { cache: "no-store" });
